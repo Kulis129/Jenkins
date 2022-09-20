@@ -3,12 +3,12 @@ pipeline {
 
      parameters {
         booleanParam(name: 'Promote', defaultValue: true, description: 'Promote statement')
-        string(name: 'Build_files', defaultValue: './PK401667_projekt2', description: 'build files path')
+        string(name: 'Build_files', defaultValue: './', description: 'build files path')
         string(name: 'Version', defaultValue: '1.0.0', description: 'Version')
     }
 
     environment {
-        DOCKERHUB_CREDENTIALS = credentials('PK401667')
+        DOCKERHUB_CREDENTIALS = credentials('main')
     }
 
     stages {
