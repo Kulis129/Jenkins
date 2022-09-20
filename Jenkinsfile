@@ -3,7 +3,6 @@ pipeline {
 
      parameters {
         booleanParam(name: 'Promote', defaultValue: true, description: 'Promote statement')
-        string(name: 'Build_files', defaultValue: './', description: 'build files path')
         string(name: 'Version', defaultValue: '1.0.0', description: 'Version')
     }
 
