@@ -1,26 +1,70 @@
 pipeline {
-    parameters {
-	string(name: 'version', defaultValue: '1.0.0', description: '')
-    }
     agent any
-    
+
+     parameters {
+        booleanParam(name: 'Promote', defaultValue: true, description: 'Promote statement')
+        string(name: 'Build_files', defaultValue: './PK401667_projekt2', description: 'build files path')
+        string(name: 'Version', defaultValue: '1.0.0', description: 'Version')
+    }
+
+    environment {
+        DOCKERHUB_CREDENTIALS = credentials('PK401667')
+    }
+
     stages {
-        stage('build') {
+        stage('Build') {
             steps {
-		sh 'docker kill tempContainer || true'
-		sleep 1
-                sh 'docker build -t buildirssi . -f DockerBuild'
-		sh 'docker run --name tempContainer -dit --rm buildirssi'
-		sh 'rm -r fe-text || true'
-		sh 'rm -r irssi || true'
-		sh 'docker container exec tempContainer ls'
-		sh 'docker container exec tempContainer ls ..'
-		sh 'docker container exec tempContainer ls build/src/fe-text'
-		sh 'docker cp tempContainer:irssi/build/src/fe-text .'
-		sh 'docker cp tempContainer:irssi .'
-		sh 'docker kill tempContainer'
-		sh 'ls irssi/build/src/fe-text'
+                echo 'building node-red'
+				dir("${params.Build_files}") {
+                    sh 'docker build . -f dockerbuild -t node-red_build'
+				}
+                
             }
-        }	
-}
+        }
+        
+        stage('Tests') {
+            steps {
+                echo 'testing node-red'
+				dir("${params.Build_files}") {
+                    sh 'docker build . -f dockertest -t node-red_test'
+				}
+            }
+        }
+        
+         
+       stage('Deploy') {
+            steps {
+                echo 'deploying node-red'
+                sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
+                sh 'docker tag node-red_build:latest mihaf70/node-red-devops-deploy'
+                sh 'docker push mihaf70/node-red-devops-deploy'
+            }
+        }
+
+         stage('Publish'){
+            when {
+                expression {return params.Promote}
+		    }
+            steps {
+                echo 'Publish'
+                dir("${params.Build_files}") {
+                    sh 'docker build . -f dockerpublish -t node-red_publish'
+				}
+                sh "docker run --volume /var/jenkins_home/workspace/node-red-pipeline:/finalArchive node-red_publish mv archive.tar.xz /finalArchive"
+                 dir('/var/jenkins_home/workspace/node-red-pipeline'){
+                    sh "mv archive.tar.xz archive-${params.Version}.tar.xz"
+			        archiveArtifacts artifacts: "archive-${params.Version}.tar.xz"
+			    }
+            }
+        }
+	 }
+
+	post {
+        success {
+            echo 'Pipeline succsess'
+        }
+        failure {
+            echo 'Pipeline fail'
+        }
+    }
 }
